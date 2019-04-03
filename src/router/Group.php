@@ -1,5 +1,4 @@
-<?php
-
+<?php declare(strict_types=1);
 
 namespace yii\web\router;
 
@@ -48,190 +47,37 @@ class Group implements RouterInterface
         }
     }
 
+    /**
+     * {@inheritdoc}
+     *
+     * TODO compile regexps into concatenated one
+     * @see https://nikic.github.io/2014/02/18/Fast-request-routing-using-regular-expressions.html
+     * @see https://medium.com/@nicolas.grekas/making-symfonys-router-77-7x-faster-1-2-958e3754f0e1
+     */
     public function match(ServerRequestInterface $request): Match
     {
-        // TODO: compile regexes into concatenated one
         foreach ($this->routes as $route) {
-            if (!in_array($request->getMethod(), $route->getMethods(), true)) {
+
+            $result = $route->parseRequest($request);
+
+            if (!$result) {
                 continue;
             }
-
-            $host = $route->getHost();
-            if ($host !== null && $request->getUri()->getHost() !== $host) {
-                continue;
-            }
-
-            if (!preg_match($this->getRegex($route), rtrim($request->getUri()->getPath(), '/'), $matches)) {
-                continue;
-            }
-
-            $matches = $this->substitutePlaceholderNames($route, $matches);
-
-            foreach ($route->getDefaults() as $name => $value) {
-                if (!isset($matches[$name]) || $matches[$name] === '') {
-                    $matches[$name] = $value;
-                }
-            }
-            $params = $route->getDefaults();
 
             if ($route->getCallback() === null) {
                 $route = $route->__toString();
                 throw new NoHandler("\"$route\" has no handler.");
             }
 
-            return new Match($route->getCallback(), $params, $route->getName());
+            return new Match($route->getCallback(), $result[1], $result[0]);
         }
 
         throw new NoMatch($request);
     }
 
     /**
-     * Iterates over [[placeholders]] and checks whether each placeholder exists as a key in $matches array.
-     * When found - replaces this placeholder key with a appropriate name of matching parameter.
-     * Used in [[parseRequest()]], [[createUrl()]].
-     *
-     * @param array $matches result of `preg_match()` call
-     * @return array input array with replaced placeholder keys
-     * @see placeholders
-     * @since 2.0.7
+     * {@inheritdoc}
      */
-    protected function substitutePlaceholderNames(Route $route, array $matches)
-    {
-        foreach ($route->getParameters() as $placeholder => $name) {
-            if (isset($matches[$placeholder])) {
-                $matches[$name] = $matches[$placeholder];
-                unset($matches[$placeholder]);
-            }
-        }
-
-        return $matches;
-    }
-
-    /**
-     * Trim slashes in passed string. If string begins with '//', two slashes are left as is
-     * in the beginning of a string.
-     *
-     * @param string $string
-     * @return string
-     */
-    private function trimSlashes($string)
-    {
-        if (strncmp($string, '//', 2) === 0) {
-            return '//' . trim($string, '/');
-        }
-
-        return trim($string, '/');
-    }
-
-    private function getRegex(Route $route): string
-    {
-        // TODO: we can include host into pattern as it was in Yii 2
-        //$pattern = $this->trimSlashes($this->pattern);
-
-        $pattern = rtrim($route->getPattern(), '/');
-
-        if ($pattern === '') {
-            return '#^$#u';
-        }
-
-        $pattern = '/' . $pattern . '/';
-
-//        if (strpos($pattern, '<') !== false && preg_match_all('/<([\w._-]+)>/', $pattern, $matches)) {
-//            foreach ($matches[1] as $name) {
-//                $this->parameters[$name] = "<$name>";
-//            }
-//        }
-
-        return $this->translatePattern($pattern);
-    }
-
-    /**
-     * Prepares [[$pattern]] on rule initialization - replace parameter names by placeholders.
-     *
-     * @param bool $allowAppendSlash Defines position of slash in the param pattern in [[$pattern]].
-     * If `false` slash will be placed at the beginning of param pattern. If `true` slash position will be detected
-     * depending on non-optional pattern part.
-     */
-    private function translatePattern(string $pattern, $allowAppendSlash = true)
-    {
-        $tr = [
-            '.' => '\\.',
-            '*' => '\\*',
-            '$' => '\\$',
-            '[' => '\\[',
-            ']' => '\\]',
-            '(' => '\\(',
-            ')' => '\\)',
-        ];
-
-        $tr2 = [];
-        $requiredPatternPart = $this->pattern;
-        $oldOffset = 0;
-        if (preg_match_all('/<([\w._-]+):?([^>]+)?>/', $pattern, $matches, PREG_OFFSET_CAPTURE | PREG_SET_ORDER)) {
-            $appendSlash = false;
-            foreach ($matches as $match) {
-                $name = $match[1][0];
-                $pattern = $match[2][0] ?? '[^\/]+';
-                $placeholder = 'a' . hash('crc32b', $name); // placeholder must begin with a letter
-                $this->placeholders[$placeholder] = $name;
-                if (array_key_exists($name, $this->defaults)) {
-                    $length = strlen($match[0][0]);
-                    $offset = $match[0][1];
-                    $requiredPatternPart = str_replace("/{$match[0][0]}/", '//', $requiredPatternPart);
-                    if (
-                        $allowAppendSlash
-                        && ($appendSlash || $offset === 1)
-                        && (($offset - $oldOffset) === 1)
-                        && isset($this->pattern[$offset + $length])
-                        && $this->pattern[$offset + $length] === '/'
-                        && isset($this->pattern[$offset + $length + 1])
-                    ) {
-                        // if pattern starts from optional params, put slash at the end of param pattern
-                        // @see https://github.com/yiisoft/yii2/issues/13086
-                        $appendSlash = true;
-                        $tr["<$name>/"] = "((?P<$placeholder>$pattern)/)?";
-                    } elseif (
-                        $offset > 1
-                        && $this->pattern[$offset - 1] === '/'
-                        && (!isset($this->pattern[$offset + $length]) || $this->pattern[$offset + $length] === '/')
-                    ) {
-                        $appendSlash = false;
-                        $tr["/<$name>"] = "(/(?P<$placeholder>$pattern))?";
-                    }
-                    $tr["<$name>"] = "(?P<$placeholder>$pattern)?";
-                    $oldOffset = $offset + $length;
-                } else {
-                    $appendSlash = false;
-                    $tr["<$name>"] = "(?P<$placeholder>$pattern)";
-                }
-
-                if (isset($this->_routeParams[$name])) {
-                    $tr2["<$name>"] = "(?P<$placeholder>$pattern)";
-                } else {
-                    $this->_paramRules[$name] = $pattern === '[^\/]+' ? '' : "#^$pattern$#u";
-                }
-            }
-        }
-
-        // we have only optional params in route - ensure slash position on param patterns
-        if ($allowAppendSlash && trim($requiredPatternPart, '/') === '') {
-            $this->translatePattern(false);
-            return;
-        }
-
-        $this->_template = preg_replace('/<([\w._-]+):?([^>]+)?>/', '<$1>', $this->pattern);
-        $this->pattern = '#^' . trim(strtr($this->_template, $tr), '/') . '$#u';
-
-        // if host starts with relative scheme, then insert pattern to match any
-        if (strncmp($this->host, '//', 2) === 0) {
-            $this->pattern = substr_replace($this->pattern, '[\w]+://', 2, 0);
-        }
-
-        if (!empty($this->_routeParams)) {
-            $this->_routeRule = '#^' . strtr($this->route, $tr2) . '$#u';
-        }
-    }
-
     public function generate(string $name, ServerRequestInterface $request, array $parameters = [], string $type = self::TYPE_ABSOLUTE): string
     {
         if (!isset($this->namedRoutes[$name])) {

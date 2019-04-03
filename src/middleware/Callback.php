@@ -5,7 +5,7 @@
  * @license http://www.yiiframework.com/license/
  */
 
-namespace yii\middleware;
+namespace yii\web\middleware;
 
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\ResponseInterface;
@@ -43,7 +43,6 @@ class Callback implements MiddlewareInterface
     {
         $this->callback = $callback;
     }
-
 
     /**
      * {@inheritdoc}

@@ -1,16 +1,18 @@
 <?php declare(strict_types=1);
 
-
 namespace yii\web\emitter;
 
 use Psr\Http\Message\ResponseInterface;
 
 /**
- * SapiEmitter sends response using PHP Server API
- * @package yii\http\emitter
+ * SapiEmitter sends a response using PHP Server API
+ * @package yii\web\emitter
  */
 class SapiEmitter implements EmitterInterface
 {
+    /**
+     * {@inheritdoc}
+     */
     public function emit(ResponseInterface $response): bool
     {
         $status = $response->getStatusCode();
@@ -26,7 +28,6 @@ class SapiEmitter implements EmitterInterface
         }
 
         $reason = $response->getReasonPhrase();
-        $status = $response->getStatusCode();
 
         header(sprintf(
             'HTTP/%s %d%s',

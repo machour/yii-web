@@ -44,6 +44,10 @@ class Application
         $this->emitter = $emitter;
     }
 
+    /**
+     * Handles the current request
+     * @return bool
+     */
     public function run(): bool
     {
         $request = $this->requestFactory->createFromGlobals();

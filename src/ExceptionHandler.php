@@ -1,7 +1,6 @@
-<?php
+<?php declare(strict_types=1);
 
-
-namespace yii\http;
+namespace yii\web;
 
 use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
@@ -9,21 +8,28 @@ use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 
+/**
+ * Class ExceptionHandler
+ * @package yii\web
+ */
 class ExceptionHandler implements MiddlewareInterface
 {
+    /**
+     * @var ResponseFactoryInterface
+     */
     private $responseFactory;
 
+    /**
+     * ExceptionHandler constructor.
+     * @param ResponseFactoryInterface $responseFactory
+     */
     public function __construct(ResponseFactoryInterface $responseFactory)
     {
         $this->responseFactory = $responseFactory;
     }
 
     /**
-     * Process an incoming server request.
-     *
-     * Processes an incoming server request in order to produce a response.
-     * If unable to produce the response itself, it may delegate to the provided
-     * request handler to do so.
+     * {@inheritdoc}
      */
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {

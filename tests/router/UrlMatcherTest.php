@@ -19,7 +19,7 @@ class UrlMatcherTest extends TestCase
         return new Group($routes);
     }
 
-    public function testMethodMismatch()
+    public function testMethodMismatch(): void
     {
         $request = new ServerRequest('GET', '/');
 
@@ -32,7 +32,7 @@ class UrlMatcherTest extends TestCase
         $matcher->match($request);
     }
 
-    public function testHostMismatch()
+    public function testHostMismatch(): void
     {
         $request = new ServerRequest('GET', '/');
         $uri = $request->getUri();
@@ -47,7 +47,7 @@ class UrlMatcherTest extends TestCase
         $matcher->match($request);
     }
 
-    public function testMatchWithNoHandler()
+    public function testMatchWithNoHandler(): void
     {
         $request = new ServerRequest('GET', '/');
         $matcher = $this->getMatcher([
@@ -58,7 +58,7 @@ class UrlMatcherTest extends TestCase
         $matcher->match($request);
     }
 
-    public function testStaticMatch()
+    public function testStaticMatch(): void
     {
         $handler = function () {
             // does not matter
@@ -74,7 +74,7 @@ class UrlMatcherTest extends TestCase
         $this->assertNull($match->getName());
     }
 
-    public function patternMatchProvider()
+    public function patternMatchProvider(): array
     {
         $handler = function () {
             // does not matter
@@ -104,33 +104,31 @@ class UrlMatcherTest extends TestCase
     /**
      * @dataProvider patternMatchProvider
      */
-    public function testPatternMatch(string $path, ?Match $expectedMatch)
+    public function testPatternMatch(string $path, ?Match $expectedMatch): void
     {
         $handler = function () {
             // does not matter
         };
 
         $matcher = $this->getMatcher([
-            Route::get('post/<id:\d+>')
-                ->to($handler)
-                ->name('post/view'),
-            Route::get('posts')
-                ->to($handler)
-                ->name('post/list'),
-            Route::get('book/<id:\d+>/<title>')
-                ->to($handler)
-                ->name('book/view')
+            Route::get('post/<id:\d+>')->to($handler)->name('post/view'),
+            Route::get('posts')->to($handler)->name('post/list'),
+            Route::get('book/<id:\d+>/<title>')->to($handler)->name('book/view')
         ]);
 
         // matching pathinfo
         $request = new ServerRequest('GET', $path);
+
         if ($expectedMatch === null) {
             $this->expectException(NoMatch::class);
         }
 
         $match = $matcher->match($request);
 
-        $this->assertSame($expectedMatch->getName(), $match->getName());
-        $this->assertSame($expectedMatch->getParameters(), $match->getParameters());
+        if ($expectedMatch) {
+            $this->assertSame($expectedMatch->getName(), $match->getName());
+            $this->assertSame($expectedMatch->getParameters(), $match->getParameters(), "Parameters mismatch for route \"{$match->getName()}\"");
+        }
+
     }
 }

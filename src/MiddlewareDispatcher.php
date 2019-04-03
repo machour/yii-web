@@ -1,4 +1,5 @@
-<?php
+<?php declare(strict_types=1);
+
 namespace yii\web;
 
 use Psr\Http\Message\ResponseFactoryInterface;
@@ -22,20 +23,33 @@ class MiddlewareDispatcher implements RequestHandlerInterface
      */
     private $fallbackHandler;
 
+    /**
+     * MiddlewareDispatcher constructor.
+     * @param array $middlewares
+     * @param ResponseFactoryInterface $responseFactory
+     * @param RequestHandlerInterface|null $fallbackHandler Defaults to [[NotFoundHandler]]
+     */
     public function __construct(array $middlewares, ResponseFactoryInterface $responseFactory, RequestHandlerInterface $fallbackHandler = null)
     {
         $this->middlewares = $middlewares;
         $this->fallbackHandler = $fallbackHandler ?? new NotFoundHandler($responseFactory);
     }
 
-    public function add(MiddlewareInterface $middleware)
+    /**
+     * @param MiddlewareInterface $middleware
+     */
+    public function add(MiddlewareInterface $middleware): void
     {
         $this->middlewares[] = $middleware;
     }
 
+    /**
+     * @param ServerRequestInterface $request
+     * @return ResponseInterface
+     */
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
-        // Last middleware in the queue has called on the request handler.
+        // Last middleware in the queue has been called on the request handler.
         if (0 === \count($this->middlewares)) {
             return $this->fallbackHandler->handle($request);
         }
